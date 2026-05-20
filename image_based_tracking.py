@@ -4,7 +4,7 @@ import numpy as np
 import json
 import matplotlib.pyplot as plt
 
-GOLDEN_FOLDER = "golden_run"
+OPTIMAL_FOLDER = "optimal_run"
 RANDOM_FOLDER = "random_run_1"
 RANDOM_FOLDER_2 = "random_run_2"
 
@@ -128,39 +128,15 @@ def manhattan(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
-def analyze_moves(path, goal):
-    good = 0
-    bad = 0
-
-    for i in range(len(path) - 1):
-        d1 = manhattan(path[i], goal)
-        d2 = manhattan(path[i + 1], goal)
-
-        if d2 < d1:
-            good += 1
-        else:
-            bad += 1
-
-    return good, bad
-
-
 def compute_metrics(path, start, goal):
     optimal_steps = manhattan(start, goal)
     steps = len(path) - 1
     efficiency = optimal_steps / steps if steps > 0 else 0
 
-    good, bad = analyze_moves(path, goal)
-    good_ratio = good / steps if steps > 0 else 0
-    skill_score = (efficiency + good_ratio) / 2
-
     return {
         "steps": steps,
         "optimal_steps": optimal_steps,
-        "efficiency": efficiency,
-        "good_moves": good,
-        "bad_moves": bad,
-        "good_ratio": good_ratio,
-        "skill_estimate": skill_score
+        "efficiency": efficiency
     }
 
 
@@ -306,40 +282,25 @@ def print_run_result(result):
 
     print("Steps:", result["steps"])
     print("Efficiency:", round(result["efficiency"], 3))
-    print("Skill:", round(result["skill_estimate"], 3))
 
 
 # RUNS
 
-golden_result = evaluate_run(GOLDEN_FOLDER, "golden_run", "golden", START, GOAL)
+optimal_result = evaluate_run(OPTIMAL_FOLDER, "optimal_run", "optimal", START, GOAL)
 random_result = evaluate_run(RANDOM_FOLDER, "random_run_1", "random", START, GOAL)
 random_result_2 = evaluate_run(RANDOM_FOLDER_2, "random_run_2", "random", START, GOAL)
 
-print_run_result(golden_result)
+print_run_result(optimal_result)
 print_run_result(random_result)
 print_run_result(random_result_2)
 
 # SAVE
 
 results = {
-    "golden_run": {k: v for k, v in golden_result.items() if k != "raw_holes"},
+    "optimal_run": {k: v for k, v in optimal_result.items() if k != "raw_holes"},
     "random_run_1": {k: v for k, v in random_result.items() if k != "raw_holes"},
     "random_run_2": {k: v for k, v in random_result_2.items() if k != "raw_holes"},
 }
 
 with open("real_run_analysis.json", "w") as f:
     json.dump(results, f, indent=2)
-
-# PLOT
-
-labels = ["golden", "random 1", "random 2"]
-skills = [
-    golden_result["skill_estimate"],
-    random_result["skill_estimate"],
-    random_result_2["skill_estimate"]
-]
-
-plt.bar(labels, skills)
-plt.title("Golden vs Random Runs")
-plt.ylabel("Skill")
-plt.show()
