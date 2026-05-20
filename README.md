@@ -13,8 +13,8 @@ The system consists of two main components:
 - Reconstructs the path across image frames
 
 ### 2. Synthetic simulation
-- Generates grid-based movement paths
-- Models random and progressively goal-directed strategies
+- Generates grid based paths
+- Models random and progressively goal directed strategies
 - Evaluates behavior using quantitative metrics
 
 ## Files
@@ -29,12 +29,7 @@ The system consists of two main components:
 
 - Step count  
 - Path efficiency (based on Manhattan distance)  
-- Directional movement distribution  
+- Directional step distribution  
 - Entropy (measure of randomness vs. structure)  
 
-## Requirements
 
-Install dependencies:
-
-```bash
-pip install numpy opencv-python matplotlib
