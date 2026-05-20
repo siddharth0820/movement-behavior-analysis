@@ -152,40 +152,16 @@ def generate_guided_path(start, goal, grid_size, max_steps, nth_move):
     return path
 
 
-def analyze_moves(path, goal):
-    good = 0
-    bad = 0
-
-    for i in range(len(path) - 1):
-        d1 = manhattan(path[i], goal)
-        d2 = manhattan(path[i + 1], goal)
-
-        if d2 < d1:
-            good += 1
-        else:
-            bad += 1
-
-    return good, bad
-
-
 def compute_metrics(path, start, goal):
     optimal_steps = manhattan(start, goal)
     steps = len(path) - 1
     efficiency = optimal_steps / steps if steps > 0 else 0
-
-    good, bad = analyze_moves(path, goal)
-    good_ratio = good / steps if steps > 0 else 0
-    skill_score = (efficiency + good_ratio) / 2
     entropy = move_entropy(path)
 
     return {
         "steps": steps,
         "optimal_steps": optimal_steps,
         "efficiency": efficiency,
-        "good_moves": good,
-        "bad_moves": bad,
-        "good_ratio": good_ratio,
-        "skill_estimate": skill_score,
         "entropy": entropy,
         "direction_counts": direction_counts(path)
     }
@@ -251,14 +227,12 @@ def run_progressive_guided_simulation(runs, start, goal, grid_size, max_steps, s
 def summarize(data, title):
     avg_steps = np.mean([d["steps"] for d in data])
     avg_efficiency = np.mean([d["efficiency"] for d in data])
-    avg_skill = np.mean([d["skill_estimate"] for d in data])
     avg_entropy = np.mean([d["entropy"] for d in data])
 
     print(f"\n{title}")
     print("Runs:", len(data))
     print("Avg steps:", round(avg_steps, 2))
     print("Avg efficiency:", round(avg_efficiency, 3))
-    print("Avg skill:", round(avg_skill, 3))
     print("Avg entropy:", round(avg_entropy, 3))
 
 
@@ -277,6 +251,19 @@ def aggregate_direction_counts(data):
             total_counts[direction] += counts[direction]
 
     return total_counts
+
+
+def r_squared(y_true, y_pred):
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+
+    if ss_tot == 0:
+        return 0
+
+    return 1 - (ss_res / ss_tot)
 
 
 random_data = run_batch_random_simulation(
@@ -308,9 +295,9 @@ with open("mouse_paths_progressive_guided.json", "w") as f:
     json.dump(progressive_data, f, indent=2)
 
 
-# ------------------------------------------------------------
+
 # Plot 1: Random steps with regression
-# ------------------------------------------------------------
+
 
 random_runs = [d["run"] for d in random_data]
 random_steps = [d["steps"] for d in random_data]
@@ -320,16 +307,19 @@ random_regression_line = [
     random_slope * x + random_intercept for x in random_runs
 ]
 
+random_r2 = r_squared(random_steps, random_regression_line)
+
 print("\nLinear regression on random steps")
 print("Random slope:", round(random_slope, 4))
 print("Random intercept:", round(random_intercept, 4))
+print("Random R^2:", round(random_r2, 4))
 
 plt.figure()
 plt.plot(random_runs, random_steps, linewidth=1.5, alpha=0.7, label="Random steps")
 plt.plot(random_runs, random_regression_line, linestyle="--", linewidth=2, label="Regression")
 plt.xlabel("Run")
 plt.ylabel("Steps")
-plt.title("Random Movement Steps")
+plt.title("Random Strategy")
 plt.grid(True)
 plt.legend()
 plt.tight_layout()
@@ -337,9 +327,9 @@ plt.savefig("random_steps.png", dpi=300)
 plt.show()
 
 
-# ------------------------------------------------------------
+
 # Plot 2: Guided steps with regression
-# ------------------------------------------------------------
+
 
 progressive_runs = [d["run"] for d in progressive_data]
 progressive_steps = [d["steps"] for d in progressive_data]
@@ -349,16 +339,19 @@ guided_regression_line = [
     guided_slope * x + guided_intercept for x in progressive_runs
 ]
 
+guided_r2 = r_squared(progressive_steps, guided_regression_line)
+
 print("\nLinear regression on guided steps")
 print("Guided slope:", round(guided_slope, 4))
 print("Guided intercept:", round(guided_intercept, 4))
+print("Guided R^2:", round(guided_r2, 4))
 
 plt.figure()
 plt.plot(progressive_runs, progressive_steps, linewidth=1.5, alpha=0.7, label="Guided steps")
 plt.plot(progressive_runs, guided_regression_line, linestyle="--", linewidth=2, label="Regression")
 plt.xlabel("Run")
 plt.ylabel("Steps")
-plt.title("Guided Movement Steps")
+plt.title("Guided Strategy")
 plt.grid(True)
 plt.legend()
 plt.tight_layout()
@@ -366,9 +359,9 @@ plt.savefig("guided_steps.png", dpi=300)
 plt.show()
 
 
-# ------------------------------------------------------------
+
 # Plot 3: Step trend comparison
-# ------------------------------------------------------------
+
 
 plt.figure()
 plt.plot(random_runs, random_regression_line, linestyle="--", linewidth=2, label="Random regression")
@@ -383,21 +376,23 @@ plt.savefig("steps_regression_comparison.png", dpi=300)
 plt.show()
 
 
-# ------------------------------------------------------------
+
 # Plot 4: Random entropy (RAW + regression, no smoothing)
-# ------------------------------------------------------------
+
 
 random_entropy = [d["entropy"] for d in random_data]
 
-# Regression on raw data
 entropy_slope, entropy_intercept = np.polyfit(random_runs, random_entropy, 1)
 entropy_regression = [
     entropy_slope * x + entropy_intercept for x in random_runs
 ]
 
+entropy_r2 = r_squared(random_entropy, entropy_regression)
+
 print("\nRandom entropy (raw)")
 print("Entropy slope:", round(entropy_slope, 6))
 print("Entropy intercept:", round(entropy_intercept, 4))
+print("Entropy R^2:", round(entropy_r2, 4))
 
 plt.figure()
 plt.plot(random_runs, random_entropy, linewidth=1.2, alpha=0.6, label="Entropy per run")
@@ -411,9 +406,10 @@ plt.tight_layout()
 plt.savefig("random_entropy.png", dpi=300)
 plt.show()
 
-# ------------------------------------------------------------
+
+
 # Plot 5: Guided entropy (RAW + regression, no smoothing)
-# ------------------------------------------------------------
+
 
 guided_entropy = [d["entropy"] for d in progressive_data]
 
@@ -422,9 +418,12 @@ guided_entropy_regression = [
     guided_entropy_slope * x + guided_entropy_intercept for x in progressive_runs
 ]
 
+guided_entropy_r2 = r_squared(guided_entropy, guided_entropy_regression)
+
 print("\nGuided entropy (raw)")
 print("Guided entropy slope:", round(guided_entropy_slope, 6))
 print("Guided entropy intercept:", round(guided_entropy_intercept, 4))
+print("Guided entropy R^2:", round(guided_entropy_r2, 4))
 
 plt.figure()
 plt.plot(progressive_runs, guided_entropy, linewidth=1.2, alpha=0.6, label="Entropy per run")
@@ -438,9 +437,10 @@ plt.tight_layout()
 plt.savefig("guided_entropy.png", dpi=300)
 plt.show()
 
-# ------------------------------------------------------------
+
+
 # Plot 6: Direction counts
-# ------------------------------------------------------------
+
 
 directions = ["up", "down", "left", "right"]
 batch_size = 100
@@ -475,4 +475,3 @@ plt.legend()
 plt.tight_layout()
 plt.savefig("direction_counts.png", dpi=300)
 plt.show()
-
